@@ -1,0 +1,374 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0,minimum-scale=1.0,user-scalable=0" />
+		<title>加班扣款</title>
+		<script src="https://cdn.bootcdn.net/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+		<script src="https://cdn.bootcdn.net/ajax/libs/dayjs/1.8.31/dayjs.min.js"></script>
+	</head>
+	<body>
+		<p>
+			<select id="j-case" onchange="f_change_case(this)">
+				<option value="1">工作日加班次日为正常上班日</option>
+				<option value="2">工作日加班次日为休息日</option>
+				<option value="3">休息日加班</option>
+				<option value="4">休息日加班到次日为工作日</option>
+			</select>
+		</p>
+		<p>最晚加班时间：<input type="time" id="j1" /><input type="checkbox" id="j2" />是否为次日</p>
+		<p>上班最早打卡有效时间：<input type="time" id="j9" /></p>
+		<p>
+			上下班时间段(班次)：<input type="time" id="j3" /> - <input type="time" id="j4" />
+			<span id="j-sxbsjd-tip" style="color:red;"></span>
+		</p>
+		<p>
+			人性化设置：
+			<select id="j-rxhsz" onchange="f_rxhsz(this)">
+				<option value="0">无</option>
+				<option value="1">豁免时间</option>
+				<option value="2">弹性考勤(晚来多久晚走多久)</option>
+				<option value="3">弹性考勤(分时段晚来晚走)</option>
+			</select>
+			<button onclick="f_rxhsz_calc(this)">计算</button>
+			<div id="j-rxhsz-1" class="j-rxhsz-o" style="display:none;">
+				晚到<input type="text" id="j-wd">分钟
+				早走<input type="text" id="j-zz">分钟
+			</div>
+			<div id="j-rxhsz-2" class="j-rxhsz-o" style="display:none">
+				允许晚到<input type="text" id="j-yxwd" value="30">分钟
+				<p><span id="j-rxhsz-2-tip"></span></p>
+			</div>
+			<div id="j-rxhsz-3" class="j-rxhsz-o" style="display:none;">
+				弹性上班时段
+				<select id="j-txsbsd">
+					<option value="2">2</option>
+					<option value="3">3</option>
+					<option value="4">4</option>
+				</select>
+				时段间隔<input type="text" id="j-sdjg" value="30">分钟
+				<p><span id="j-rxhsz-3-tip"></span></p>
+			</div>
+		</p>
+		<p>最小加班时长（分钟）：<input type="text" id="j5" value="0"></p>
+		<p>加班时长计算单位: 
+			<select id="j6">
+				<option value="1">选择按分钟计算加班</option>
+				<option value="2">选择按半小时计加班</option>
+				<option value="3">选择按小时计加班</option>
+				<option value="4">选择按半天计加班</option>
+				<option value="5">选择按天计加班</option>
+			</select>
+		</p>
+		<p>上班打卡时间：<input type="time" id="j7" /></p>
+		<p>下班打卡时间：<input type="time" id="j8" /><input type="checkbox" id="j10" />是否为次日</p>
+		<p><button onclick="calc()">计算</button></p>
+		<p>结果: <span id="j-result">0</span>小时</p>
+		<script type="text/javascript">
+			// $("#j2").is(':checked')
+			var yyyymmdd = '2019-03-19 ';
+
+			var rxhsz = 0;
+			function calc() {
+				var zwjbsj = $('#j1').val();
+				var sfwcr1 = $("#j2").is(':checked');
+				var sbdksjd = $('#j3').val();
+				var xbdksjd = $('#j4').val();
+				var zxjbsc = $('#j5').val();
+				var jbscjsdw = $('#j6').val();
+				var sbdksj = $('#j7').val();
+				var xbdksj = $('#j8').val();
+				var sbzzdksj = $('#j9').val();
+				var sfwcr2 = $('#j10').is(':checked');
+
+				sbdksjd = d(sbdksjd);
+
+				var zwj1 = false;
+				if (sbdksjd.isAfter(d(xbdksjd))) {
+					xbdksjd = d(xbdksjd).add(1, 'day')
+					xbdksj = d(xbdksj).add(1, 'day');
+					zwj1 = true;
+				} else {
+					xbdksjd = d(xbdksjd);
+					xbdksj = d(xbdksj);
+				}
+
+				if (sfwcr2 == true) {
+					xbdksj = xbdksj.add(1, 'day');
+				}
+
+				if ($.trim(sbdksj) !== '') {
+					sbdksj = d(sbdksj)
+					if (rxhsz == 1) {
+						// ignore
+					} else if (rxhsz == 2) {
+						var yxwd = $('#j-yxwd').val();
+						if (sbdksj.isAfter(sbdksjd)) {
+							var diffminute = sbdksj.diff(sbdksjd, 'minute');
+							if (diffminute >= yxwd) {
+								sbdksjd = sbdksjd.add(yxwd, 'minute');
+								xbdksjd = xbdksjd.add(yxwd, 'minute');
+							} else {
+								sbdksjd = sbdksjd.add(diffminute, 'minute');
+								xbdksjd = xbdksjd.add(diffminute, 'minute');
+							}
+						}
+					} else if (rxhsz == 3) {
+						var sjdArr = f_rxhsz_fd();
+						var i = -1;
+						for (var idx in sjdArr) {
+							var sjd = sjdArr[idx];
+							if (sjd[0] == '-1') {
+								if (sbdksj.isAfter(d(sjd[1]))) {
+									continue;
+								} else {
+									i = idx;
+									break;
+								}
+							} else {
+								if (between(sbdksj, d(sjd[0]), d(sjd[1]), '[]')) {
+									i = idx;
+									break;
+								}
+							}
+						}
+						if (i == -1) {
+							i = sjdArr.length - 1;
+						}
+						var a = sjdArr[i];
+						sbdksjd = d(a[1]);
+						xbdksjd = d(a[2]);
+					}
+				}
+
+				var jcase = $('#j-case').val();
+
+				// case 1
+				if ($.trim(zwjbsj) === '') {
+					var zzdksj = '';
+					if (jcase == 1) {
+						var sbbc = $('#j3').val();
+						var xbbc = $('#j4').val();
+						if ($.trim(sbbc) === '' || $.trim(xbbc) === '') {
+							$('#j-sxbsjd-tip').text('上下班时间段(班次)必填');
+							return ;
+						}
+						zzdksj = $.trim(sbzzdksj) === '' ? sbdksjd : d(sbzzdksj);
+						zzdksj = zzdksj.add(1, 'day').subtract(1, 'millisecond');
+					} else if (jcase == 2) {
+						var sbbc = $('#j3').val();
+						var xbbc = $('#j4').val();
+						if ($.trim(sbbc) === '' || $.trim(xbbc) === '') {
+							$('#j-sxbsjd-tip').text('上下班时间段(班次)必填');
+							return ;
+						}
+						zzdksj = xbdksjd.add(12, 'hour').subtract(1, 'millisecond');
+						if (xbdksj.isAfter(zzdksj)) {
+							zzdksj = zwjbsj;
+						}
+					} else if (jcase == 3) {
+						if ($.trim(sbdksj) !== '') {
+							zzdksj = sbdksj.add(12, 'hour').subtract(1, 'millisecond');
+							xbdksjd = sbdksj;
+						}
+					} else if (jcase == 4) {
+						if ($.trim(sbdksj) !== '') {
+							zzdksj = d(sbzzdksj);
+							zzdksj = zzdksj.add(1, 'day');
+							xbdksjd = sbdksj;
+						}
+					}
+					
+					if (xbdksj.isBefore(zzdksj)) {
+						var result = xbdksj.diff(xbdksjd, 'minute');
+						if (result < zxjbsc) {
+							result = 0;
+						}
+						if (jbscjsdw == 2) {
+							var scale = (result / 30) << 0;
+							result = scale * 30;
+						} else if (jbscjsdw == 3) {
+							var scale = (result / 60) << 0;
+							result = scale * 60;
+						} else if (jbscjsdw == 4) {
+							var scale = (result / 240) << 0;
+							result = scale * 240;
+						} else if (jbscjsdw == 5) {
+							var scale = (result / 480) << 0;
+							result = scale * 480;
+						}
+						setResult(result / 60.0);
+						return ;
+					}
+				} 
+				// case 2
+				else if ($.trim(zwjbsj) !== '') {
+					zwjbsj = d(zwjbsj);
+					if (zwj1) {
+						zwjbsj = zwjbsj.add(1, 'day');
+					}
+					if (sfwcr1 == true) {
+						zwjbsj = zwjbsj.add(1, 'day');
+					}
+
+					if (zwjbsj.isSame(xbdksjd) || zwjbsj.isBefore(xbdksjd)) {
+						$('#j1').val('');
+						calc();
+						return ;
+					}
+
+					var zzdksj = '';
+					if (jcase == 1) {
+						var sbbc = $('#j3').val();
+						var xbbc = $('#j4').val();
+						if ($.trim(sbbc) === '' || $.trim(xbbc) === '') {
+							$('#j-sxbsjd-tip').text('上下班时间段(班次)必填');
+							return ;
+						}
+						zzdksj = $.trim(sbzzdksj) === '' ? sbdksjd : d(sbzzdksj);
+						zzdksj = zzdksj.add(1, 'day').subtract(1, 'millisecond');
+						if (xbdksj.isAfter(zzdksj)) {
+							zzdksj = zwjbsj;
+						}
+					} else if (jcase == 2) {
+						var sbbc = $('#j3').val();
+						var xbbc = $('#j4').val();
+						if ($.trim(sbbc) === '' || $.trim(xbbc) === '') {
+							$('#j-sxbsjd-tip').text('上下班时间段(班次)必填');
+							return ;
+						}
+						zzdksj = zwjbsj.add(8, 'hour').subtract(1, 'millisecond');
+						if (xbdksj.isAfter(zzdksj)) {
+							zzdksj = zwjbsj;
+						}
+					} else if (jcase == 3) {
+						if ($.trim(sbdksj) !== '') {
+							zzdksj = zwjbsj.add(8, 'hour').subtract(1, 'millisecond');
+							if (xbdksj.isAfter(zzdksj)) {
+								zzdksj = zwjbsj;
+							}
+							xbdksjd = sbdksj;
+						}
+					} else if (jcase == 4) {
+						if ($.trim(sbdksj) !== '') {
+							zzdksj = d(sbzzdksj);
+							zzdksj = zzdksj.add(1, 'day');
+							xbdksjd = sbdksj;
+						}
+					}
+
+					if (xbdksj.isAfter(zwjbsj)) {
+						xbdksj = zwjbsj;
+					}
+					
+					if (xbdksj.isBefore(zzdksj)) {
+						var result = xbdksj.diff(xbdksjd, 'minute');
+						if (result < zxjbsc) {
+							result = 0;
+						}
+						if (jbscjsdw == 2) {
+							var scale = (result / 30) << 0;
+							result = scale * 30;
+						} else if (jbscjsdw == 3) {
+							var scale = (result / 60) << 0;
+							result = scale * 60;
+						} else if (jbscjsdw == 4) {
+							var scale = (result / 240) << 0;
+							result = scale * 240;
+						} else if (jbscjsdw == 5) {
+							var scale = (result / 480) << 0;
+							result = scale * 480;
+						}
+						setResult(result / 60.0);
+						return ;
+					}
+				}
+				setResult(0);
+			}
+
+			function f_change_case(obj) {
+				$('#j-sxbsjd-tip').text('');
+			}
+
+			function between(d, d1, d2, i) {
+				i = i || '()';
+				if ('[' === i[0]) {
+					d1 = d1.subtract(1, 'millisecond');
+				}
+				if (']' === i[1]) {
+					d2 = d2.add(1, 'millisecond');
+				}
+				return d.isAfter(d1) && d.isBefore(d2);
+			}
+
+			function f_rxhsz(obj) {
+				var val = $(obj).val();
+				$('.j-rxhsz-o').hide();
+				$('#j-rxhsz-' + val).show();
+				rxhsz = val;
+			}
+
+			function f_rxhsz_calc(obj) {
+				if (rxhsz == 2) {
+					var sbdksjd = $('#j3').val();
+					var xbdksjd = $('#j4').val();
+					var yxwd = $('#j-yxwd').val();
+					if ($.trim(sbdksjd) !== '' && $.trim(xbdksjd) !== '' && $.trim(yxwd) !== '') {
+						var ss = d(sbdksjd).format('HH:mm');
+						var se = d(sbdksjd).add(yxwd, 'minute').format('HH:mm');
+						var xs = d(xbdksjd).format('HH:mm');
+						var xe = d(xbdksjd).add(yxwd, 'minute').format('HH:mm');
+						$('#j-rxhsz-2-tip').html('上班时间：'+ss+' ~ '+se+'，下班时间：'+xs+' ~ ' + xe);
+					}
+				} else if (rxhsz == 3) {
+					var sjdArr = f_rxhsz_fd();
+					var tipArr = [];
+					for (var idx in sjdArr) {
+						var sjd = sjdArr[idx];
+						if (sjd[0] == '-1') {
+							tipArr.push('上班时间：'+sjd[1]+'之前，则下班时间：'+sjd[2]+'之后<br/>');
+						} else {
+							tipArr.push('上班时间：'+sjd[0]+' ~ '+sjd[1]+'，则下班时间：'+sjd[2]+'之后<br/>');
+						}
+					}
+					$('#j-rxhsz-3-tip').html(tipArr.join(''));
+				}
+			}
+
+			function f_rxhsz_fd() {
+				var sbdksjd = $('#j3').val();
+				var xbdksjd = $('#j4').val();
+				var txsbsd = $('#j-txsbsd').val();
+				var sdjg = $('#j-sdjg').val();
+
+				var sjdArr = [];
+				if ($.trim(sbdksjd) !== '' && $.trim(xbdksjd) !== '' 
+						&& $.trim(txsbsd) !== '' && $.trim(sdjg) !== '') {
+					var ss = d(sbdksjd).format('HH:mm');
+					var se = d(sbdksjd).add(sdjg, 'minute').format('HH:mm');
+					var xs = d(xbdksjd).format('HH:mm');
+					var xe = d(xbdksjd).add(sdjg, 'minute').format('HH:mm');
+
+					txsbsd = txsbsd - 1;
+					sjdArr.push(["-1", ss, xs]);
+					for (var i = 1; i <= txsbsd; i++) {
+						var shs = d(sbdksjd).add(i * sdjg - sdjg + 1, 'minute').format('HH:mm');
+						var she = d(sbdksjd).add(i * sdjg, 'minute').format('HH:mm');
+						var xhm = d(xbdksjd).add(i * sdjg, 'minute').format('HH:mm');
+						sjdArr.push([shs, she, xhm]);
+					
+					}
+				}
+				return sjdArr;
+			}
+
+			function setResult(str) {
+				$('#j-result').text(str);
+			}
+
+			function d(str) {
+				return dayjs(yyyymmdd + str + ":00");
+			}
+		</script>
+	</body>
+</html>

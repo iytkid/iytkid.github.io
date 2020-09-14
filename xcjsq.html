@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/dayjs/1.8.31/dayjs.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.min.js"></script>
+    <title>薪酬计算器</title>
+</head>
+<body>
+    <div>请假时长: <input type="text" id="j-qjsc"><input type="checkbox" id="j-qjsc-ck">是否为天</div>
+    <div>
+        计算公式: <select id="j-jsgs" onchange="f_jsgs(this)">
+            <option value="按最低工资折算">按最低工资折算</option>
+            <option value="按工资一定比例">按工资一定比例</option>
+        </select>
+        <div id="j-jsgs-1">最低工资: <input type="text" id="j-zdgz"></div>
+        <div id="j-jsgs-2" style="display: none;">
+        <div><input type="checkbox" id="j-jbgz-ck" onchange="f_jbgz_ck(this)">基本工资 <div id="j-jbgz-div" style="display: none;">正式：<input type="text" id="j-jbgz">试用期：<input type="text" id="j-jbgz-syq"></div></div>
+        <div><input type="checkbox" id="j-jxgz-ck" onchange="f_jxgz_ck(this)">绩效工资 <div id="j-jxgz-div" style="display: none;"><input type="text" id="j-jxgz"></div></div>
+        <div><input type="checkbox" id="j-jdj-ck" onchange="f_jdj_ck(this)">津补贴 <div id="j-jdj-div" style="display: none;"><input type="text" id="j-jdj"></div></div>
+        </div>
+        <div id="j-jsgs-3" style="display: none;">
+            员工状态：
+            <select id="j-ygzt" onchange="f_ygzt(this)">
+                <option value="正式">正式</option>
+                <option value="试用期">试用期</option>
+                <option value="本月转正">本月转正</option>
+            </select>
+            <div id="j-ygzt-1" style="display: none;">
+            转正前：<input type="text" id="j-zzq"> 转正后：<input type="text" id="j-zzh">
+            </div>
+        </div>
+    </div>
+    
+    <div>折算标准规则：
+        <select id="j-zsbz-s" onchange="f_zsbz(this)">
+            <option value="应出勤天数">应出勤天数</option>
+            <option value="应出勤工时">应出勤工时</option>
+        </select>
+        <div id="j-ycqts-div">应出勤天数: <input type="text" id="j-ycqts"></div>
+        <div id="j-ycqgs-div" style="display: none;">应出勤工时: <input type="text" id="j-ycqgs"></div>
+        <div>折算标准：<input type="text" id="j-zsbz"></div>
+    </div>
+    <div>计薪比例：<input type="text" id="j-jxbl"></div>
+    <div>不扣款时长: <input type="text" id="j-bkksc" value="0"></div>
+
+    <div>计算公式：<span id="j-calc-formula"></span></div>
+    <div>计算结果: <span id="j-calc-result"></span></div>
+    <button onclick="js()">计算</button>
+
+    <script>
+        $(function(){
+        });
+
+        function f_jbgz_ck(obj) {
+            var checked = $(obj).is(':checked');
+            if (checked) {
+                $('#j-jbgz-div').show();
+            } else {
+                $('#j-jbgz-div').hide();
+            }
+        }
+        
+        function f_jxgz_ck(obj) {
+            var checked = $(obj).is(':checked');
+            if (checked) {
+                $('#j-jxgz-div').show();
+            } else {
+                $('#j-jxgz-div').hide();
+            }
+        }
+        
+        function f_jdj_ck(obj) {
+            var checked = $(obj).is(':checked');
+            if (checked) {
+                $('#j-jdj-div').show();
+            } else {
+                $('#j-jdj-div').hide();
+            }
+        }
+
+        function f_jsgs(obj) {
+            var v = $(obj).val();
+            if (v == '按工资一定比例') {
+                $('#j-jsgs-1').hide();
+                $('#j-jsgs-2').show();
+                $('#j-jsgs-3').show();
+            } else {
+                $('#j-jsgs-1').show();
+                $('#j-jsgs-2').hide();
+                $('#j-jsgs-3').show();
+            }
+        }
+
+        function f_zsbz(obj) {
+            var v = $(obj).val();
+            if (v == '应出勤工时') {
+                $('#j-ycqts-div').hide();
+                $('#j-ycqgs-div').show();
+            } else {
+                $('#j-ycqts-div').show();
+                $('#j-ycqgs-div').hide();
+            }
+        }
+
+        function f_ygzt(obj) {
+            var v = $(obj).val();
+            if (v == '本月转正') {
+                $('#j-ygzt-1').show();
+            } else {
+                $('#j-ygzt-1').hide();
+            }
+        }
+
+        function js() {
+            var jsgs = $('#j-jsgs').val();
+            var calcResult = null;
+            var calcFormula = null;
+            if (jsgs == '按最低工资折算') {
+                var zdgz = $('#j-zdgz').val();
+                var qjsc = $('#j-qjsc').val();
+                var bkksc = $('#j-bkksc').val();
+                var jxbl = $('#j-jxbl').val();
+
+                var zsbz_s = $('#j-zsbz-s').val();
+                var zsbz = $('#j-zsbz').val();
+                var ycqts = $('#j-ycqts').val();
+                var ycqgs = $('#j-ycqgs').val();
+
+                var qjsc_ck = $('#j-qjsc-ck').is(':checked');
+
+                var ycq = null;
+                if (zsbz_s == '应出勤工时' && qjsc_ck == false) {
+                    ycq = ycqgs;
+                } else if (zsbz_s == '应出勤工时' && qjsc_ck == true) {
+                    ycq = ycqgs * zsbz;
+                } else if (zsbz_s == '应出勤天数' && qjsc_ck == false) {
+                    ycq = ycqts * zsbz;
+                } else if (zsbz_s == '应出勤天数' && qjsc_ck == true) {
+                    ycq = ycqts;
+                }
+
+                calcFormula = zdgz + ' / ' + ycq + ' * (' + qjsc + ' - ' + bkksc + ') ' + ' * (1 - ' + jxbl + ' / ' + 100 + ')';   
+
+                calcResult = zdgz / ycq * (qjsc - bkksc) * (1 - jxbl / 100);
+            } else if (jsgs == '按工资一定比例') {
+                var qjsc = $('#j-qjsc').val();
+                var bkksc = $('#j-bkksc').val();
+                var jxbl = $('#j-jxbl').val();
+
+                var zsbz_s = $('#j-zsbz-s').val();
+                var zsbz = $('#j-zsbz').val();
+                var ycqts = $('#j-ycqts').val();
+                var ycqgs = $('#j-ycqgs').val();
+
+                var qjsc_ck = $('#j-qjsc-ck').is(':checked');
+
+                var jbgz = $('#j-jbgz').val();
+                var jbgz_syq = $('#j-jbgz-syq').val();
+                var jxgz = $('#j-jxgz').val();
+                var jdj = $('#j-jdj').val();
+
+                var jbgz_ck = $('#j-jbgz-ck').is(':checked');
+                var jxgz_ck = $('#j-jxgz-ck').is(':checked');
+                var jdj_ck = $('#j-jdj-ck').is(':checked');
+                var ygzt = $('#j-ygzt').val();
+
+                var ycq = null;
+                if (zsbz_s == '应出勤工时' && qjsc_ck == false) {
+                    ycq = ycqgs;
+                } else if (zsbz_s == '应出勤工时' && qjsc_ck == true) {
+                    ycq = ycqgs * zsbz;
+                } else if (zsbz_s == '应出勤天数' && qjsc_ck == false) {
+                    ycq = ycqts * zsbz;
+                } else if (zsbz_s == '应出勤天数' && qjsc_ck == true) {
+                    ycq = ycqts;
+                }
+
+                var gz = 0;
+                if (ygzt == '正式') {
+                    if (jbgz_ck == true) {
+                        gz += parseFloat(jbgz);
+                    }
+                } else if (ygzt == '试用期') {
+                    if (jbgz_ck == true) {
+                        gz += parseFloat(jbgz_syq);
+                    }
+                } else if (ygzt == '本月转正') {
+                    var zzq = $('#j-zzq').val();
+                    var zzh = $('#j-zzh').val();
+                    var t = zsbz_s == '应出勤天数' ? ycqts : ycqgs;
+                    zzq = zsbz_s == '应出勤天数' ? zzq : zzq * zsbz;
+                    zzh = zsbz_s == '应出勤天数' ? zzh : zzh * zsbz;
+                    gz = ((jbgz_syq * zzq) + (jbgz * zzh)) / t;
+                }
+
+                if (jxgz_ck == true) {
+                    gz += parseFloat(jxgz);
+                }
+                if (jdj_ck == true) {
+                    gz += parseFloat(jdj);
+                }
+
+                calcFormula = gz + ' / ' + ycq + ' * (' + qjsc + ' - ' + bkksc + ') ' + ' * (1 - ' + jxbl + ' / ' + 100 + ')';   
+                calcResult = gz / ycq * (qjsc - bkksc) * (1 - jxbl / 100);
+            }
+            $('#j-calc-formula').text(calcFormula);
+            $('#j-calc-result').text(calcResult);
+        }
+    </script>
+</body>
+</html>
